@@ -2,11 +2,11 @@ import numpy as np
 from utils import *
 
 # simulating scenario, use LKF_CA F matrix for transition
-def simulate_motion(state_transition: np.ndarray, dim_state, n_frames, x_init, ax_periods=None, ay_periods=None):
-    if ax_periods is None:
-        ax_periods = [0, 0, 0]
-    if ay_periods is None:
-        ay_periods = [0, 0, 0]
+def simulate_motion(state_transition: np.ndarray, dim_state, n_frames, x_init, ax_frames=None, ay_frames=None):
+    if ax_frames is None:
+        ax_frames = [[0, 0, 0]]
+    if ay_frames is None:
+        ay_frames = [[0, 0, 0]]
 
     sim_state = np.zeros([dim_state, n_frames])
     for i in range(n_frames):
@@ -14,9 +14,18 @@ def simulate_motion(state_transition: np.ndarray, dim_state, n_frames, x_init, a
             sim_state[:, i] = x_init.T
         else:
             sim_state[:, i] = state_transition @ sim_state[:, i-1]
-        sim_state[IAX, i] = ax_periods[2] if (i >= ax_periods[0]) & (i <= ax_periods[1]) else 0.
-        sim_state[IAY, i] = ay_periods[2] if (i >= ay_periods[0]) & (i <= ay_periods[1]) else 0.
+        sim_state[IAX, i] = _assign_acc(ax_frames, i)
+        sim_state[IAY, i] = _assign_acc(ay_frames, i)
     return sim_state
+
+
+def _assign_acc(acc_frames: list, cur_frame: int):
+    acc_value = 0
+    for ax_segment in acc_frames:
+        if (cur_frame >= ax_segment[0]) & (cur_frame <= ax_segment[1]):
+            acc_value = ax_segment[2]
+            break
+    return acc_value
 
 
 # simulate measurement from a radar-like sensor
