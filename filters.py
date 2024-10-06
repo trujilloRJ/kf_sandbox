@@ -135,9 +135,7 @@ class UKF_CTRV:
         Pxz = np.zeros((nx, nz))
         for j in range(ns):
             x_diff = self.sigma[:, j] - self.x
-            x_diff[IPHI] = wrap_angle2(x_diff[IPHI])
             z_diff = Z_pred[:, j] - z_mean
-            z_diff[IMPHI] = wrap_angle2(z_diff[IMPHI])
             Pxz += self.wc[j]*np.outer(x_diff, z_diff)
 
         # computing Kalman gain
@@ -145,14 +143,13 @@ class UKF_CTRV:
 
         self.x += K @ (z - z_mean)
         self.P = self.P - K @ Pzz @ K.T
+
+        self.K = K
         
     def _estimate_mean_and_covariance(self, X_sig: np.ndarray):
-        nrow, ncol = X_sig.shape
         x_mean = X_sig @ self.wm
-        P_pred = np.zeros((nrow, nrow))
-        for j in range(ncol):
-            x_diff = X_sig[:, j] - x_mean
-            P_pred += self.wc[j]*np.outer(x_diff, x_diff)
+        y = X_sig - x_mean[:, np.newaxis]
+        P_pred = np.dot(y, np.dot(np.diag(self.wc), y.T))
         return x_mean, P_pred
 
 
