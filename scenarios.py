@@ -7,13 +7,32 @@ def get_scenario(scenario_id: str, cycle_time_s: float):
         scenario = {
             'duration_s': 20.0, 
             'x_init': np.array([-50, 20, 5, 0, 0, 0]),
+            'state': 'cartesian'
         }
     elif scenario_id == '2':
         # CA crossing
         scenario = {
             'duration_s': 20.0, 
+            'x_init': np.array([-70, 0, 10, 0, 0, 0]),
+            'state': 'cartesian',
+            'manx_frames': [[0, 0, 0]] # initial frame, n_frames, jerk value
+        }
+    elif scenario_id == '3':
+        # Turn
+        scenario = {
+            'duration_s': 20.0, 
             'x_init': np.array([-70, 20, 5, 0, 0, 0]),
-            'ax_frames': [[5/T, 7/T, 3], [13/T, 15/T, -3]],
+            'state': 'cartesian',
+            'manx_frames': [[5/T, 20, 0.5], [7/T, 20, -0.5]] # initial frame, n_frames, jerk value
+        }
+    elif scenario_id == '4':
+        # CTRV 
+        scenario = {
+            'duration_s': 20.0, 
+            'x_init': np.array([-40, 10, 0, 5, 0]), # x, y, phi, v, w
+            'state': 'polar', 
+            'manx_frames': [[5/T, 10/T, np.radians(-90/5)]], # initial frame, n_frames, manouver value
+            # 'manx_frames': [] # initial frame, n_frames, manouver value
         }
     else:
         raise ValueError('Scenario not found')
