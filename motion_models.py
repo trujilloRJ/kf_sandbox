@@ -70,6 +70,7 @@ class MM_CTRV(MotionModel):
         else:
             x[IX] += x[IV]*np.cos(x[IPHI]) * T
             x[IY] += x[IV]*np.sin(x[IPHI]) * T
+        x[IPHI] = wrap_angle2(x[IPHI])
         return x
 
     def get_transition_matrix_jac(self, x: np.ndarray, T: float):

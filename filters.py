@@ -37,8 +37,10 @@ class EKF_CTRV(BaseEKF):
         self.fx = self.mm.apply_transition_fn
         self.dim_state = self.mm.dim_state
         self.dim_meas = self.meas_fn.dim_meas
+        self.x = np.zeros(self.dim_state)
+        self.P = np.zeros((self.dim_state, self.dim_state))
 
-    def initializeFilter(self, z0: np.ndarray):
+    def initialize_filter(self, z0: np.ndarray):
         self.x = np.zeros(self.dim_state)
         self.x[IX] = z0[IX]
         self.x[IY] = z0[IY]
@@ -52,8 +54,7 @@ class EKF_CTRV(BaseEKF):
 
     def update(self, z: np.ndarray):
         z_est, Hjac = self.meas_fn.meas_fn(self.x)
-        y = z - z_est
-        y[IMPHI] = wrap_angle2(y[IMPHI])
+        y = z_diff_pol_pos(z, z_est)
         R = self.meas_fn.compute_R_matrix()
         self._update(y, Hjac, R)
         self.x[IPHI] = wrap_angle2(self.x[IPHI])
@@ -72,47 +73,45 @@ class UKF_CTRV:
         self.x = np.zeros(self.dim_state)
         self.P = np.zeros((self.dim_state, self.dim_state))
 
-    def initializeFilter(self, z0: np.ndarray):
+    def initialize_filter(self, z0: np.ndarray):
+        self.x = np.zeros(self.dim_state)
         self.x[IX] = z0[IX]
         self.x[IY] = z0[IY]
         self.P = np.diag([3**2, 3**2, np.radians(90)**2, 20**2, np.radians(10)**2])
 
     def _initialize_weights(self):
         nx = self.dim_state
-        kappa = 3 - nx
-        alpha = 0.1
-        beta = 2
+        # original Merwe scaled UT
+        # kappa = 3 - nx
+        # alpha = 0.1
+        # beta = 2
+        # this selection is not the original Merwe, but it has been chosen like this to
+        # avoid large negative weigth which skew mean and covariance for phi in state
+        # ultimately leading to filter instability
+        # CKF
+        kappa = 0
+        alpha = 1
+        beta = 0
+        #-----------------------------------------------------------------------------
         self.lambda_ = alpha**2 * (nx+kappa) - nx
-        # self.lambda_ = 3 - L
         gamma = self.lambda_ + nx
         self.wm = np.full(self.n_sig, 1/(2*gamma))
         self.wc = np.full(self.n_sig, 1/(2*gamma))
         self.wm[0] = self.lambda_/gamma
-        # self.wc[0] = self.lambda_/gamma
         self.wc[0] = self.lambda_/gamma + 1 - alpha**2 + beta
 
     def predict(self):
-        nx, ns = self.dim_state, self.n_sig
+        ns = self.n_sig
 
-        # augment state and covariance
-        X_aug = self.x
-        P_aug = self.P
-
-        # generate sigma points
-        L = cholesky(P_aug)
-        S = np.zeros((nx, ns))
-        S[:, 0] = X_aug
-        for i in np.arange(1, nx + 1):
-            S[:, i] = X_aug + np.sqrt(self.lambda_ + nx) * L[:, i-1]
-            S[:, i+nx] = X_aug - np.sqrt(self.lambda_ + nx) * L[:, i-1]
+        S = self.generate_sigma_points(subtract_fn=x_diff_ctrv)
 
         # predict sigma points
-        S_pred = S
+        S_pred = np.zeros_like(S)
         for j in range(ns):
             S_pred[:, j] = self.mm.apply_transition_fn(S[:, j], self.T)
 
         # estimate mean and covariance of prediction
-        x_mean, P_pred = self._estimate_mean_and_covariance(S_pred)
+        x_mean, P_pred = self._estimate_mean_and_covariance(S_pred, mean_fn=weighted_mean_ctrv, subtract_fn=x_diff_ctrv)
         Q = self.mm.get_process_noise_matrix(self.x, self.T)
         P_pred += Q
 
@@ -127,31 +126,80 @@ class UKF_CTRV:
         Z_pred = np.zeros((nz, ns))
         for j in range(ns):
             Z_pred[:, j], _ = self.meas_fn.meas_fn(self.sigma[:, j])
-        z_mean, Pzz = self._estimate_mean_and_covariance(Z_pred)
+        Z_pred[IMPHI, :] = wrap_angle2(Z_pred[IMPHI, :])
+        z_mean, Pzz = self._estimate_mean_and_covariance(Z_pred, mean_fn=weighted_mean_pol_pos, subtract_fn=z_diff_pol_pos)
         R = self.meas_fn.compute_R_matrix()
         Pzz += R
 
         # computing Pxz
         Pxz = np.zeros((nx, nz))
         for j in range(ns):
-            x_diff = self.sigma[:, j] - self.x
-            z_diff = Z_pred[:, j] - z_mean
+            x_diff = x_diff_ctrv(self.sigma[:, j], self.x)
+            z_diff = z_diff_pol_pos(Z_pred[:, j], z_mean)
             Pxz += self.wc[j]*np.outer(x_diff, z_diff)
 
         # computing Kalman gain
         K = Pxz @ inv(Pzz)
 
-        self.x += K @ (z - z_mean)
+        self.x += K @ z_diff_pol_pos(z, z_mean)
         self.P = self.P - K @ Pzz @ K.T
 
+        self.x[IPHI] = wrap_angle2(self.x[IPHI])
         self.K = K
+
+    def generate_sigma_points(self, subtract_fn = None):
+        nx, ns = self.dim_state, self.n_sig
+        x0 = self.x
+        L = cholesky((self.lambda_ + nx) * self.P)
+        S = np.zeros((nx, ns))
+        S[:, 0] = x0
+        for i in range(nx):
+            if subtract_fn is None:
+                S[:, i+1] = x0 + L[i, :]
+                S[:, nx+i+1] = x0 - L[i, :]
+            else:
+                S[:, i+1] = subtract_fn(x0, -L[i, :])
+                S[:, nx+i+1] = subtract_fn(x0, L[i, :])
+        return S
         
-    def _estimate_mean_and_covariance(self, X_sig: np.ndarray):
-        x_mean = X_sig @ self.wm
-        y = X_sig - x_mean[:, np.newaxis]
-        P_pred = np.dot(y, np.dot(np.diag(self.wc), y.T))
+    def _estimate_mean_and_covariance(self, X_sig: np.ndarray, mean_fn = None, subtract_fn = None):
+        nx, ns = X_sig.shape
+        
+        if mean_fn is None:
+            x_mean = X_sig @ self.wm
+        else:
+            x_mean = mean_fn(X_sig, self.wm)
+
+        if subtract_fn is None:
+            y = X_sig - x_mean[:, np.newaxis]
+            P_pred = np.dot(y, np.dot(np.diag(self.wc), y.T))
+        else:
+            P_pred = np.zeros((nx, nx))
+            for j in range(ns):
+                y = subtract_fn(X_sig[:, j], x_mean)
+                P_pred += self.wc[j] * np.outer(y, y)
+
         return x_mean, P_pred
 
+def weighted_mean_ctrv(X: np.ndarray, weights):
+    x_mean = X @ weights
+    x_mean[IPHI] = circular_mean(X[IPHI, :], weights)
+    return x_mean
+
+def weighted_mean_pol_pos(X: np.ndarray, weights):
+    x_mean = X @ weights
+    x_mean[IMPHI] = circular_mean(X[IMPHI, :], weights)
+    return x_mean
+
+def x_diff_ctrv(x1, x2):
+    x_diff = x1 - x2
+    x_diff[IPHI] = wrap_angle2(x_diff[IPHI])
+    return x_diff
+
+def z_diff_pol_pos(x1, x2):
+    x_diff = x1 - x2
+    x_diff[IMPHI] = wrap_angle2(x_diff[IMPHI])
+    return x_diff
 
 
 # class UKF_CTRV:
