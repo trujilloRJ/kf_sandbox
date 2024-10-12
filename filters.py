@@ -40,10 +40,8 @@ class EKF_CTRV(BaseEKF):
         self.x = np.zeros(self.dim_state)
         self.P = np.zeros((self.dim_state, self.dim_state))
 
-    def initialize_filter(self, z0: np.ndarray):
-        self.x = np.zeros(self.dim_state)
-        self.x[IX] = z0[IX]
-        self.x[IY] = z0[IY]
+    def initialize_filter(self, z0: np.ndarray, z1: np.ndarray):
+        self.x = self.mm.initialize_state(z0, z1, self.T)
         self.P = np.diag([3**2, 3**2, np.radians(90)**2, 20**2, np.radians(10)**2])
 
     def predict(self):
@@ -73,10 +71,8 @@ class UKF_CTRV:
         self.x = np.zeros(self.dim_state)
         self.P = np.zeros((self.dim_state, self.dim_state))
 
-    def initialize_filter(self, z0: np.ndarray):
-        self.x = np.zeros(self.dim_state)
-        self.x[IX] = z0[IX]
-        self.x[IY] = z0[IY]
+    def initialize_filter(self, z0: np.ndarray, z1: np.ndarray):
+        self.x = self.mm.initialize_state(z0, z1, self.T)
         self.P = np.diag([3**2, 3**2, np.radians(90)**2, 20**2, np.radians(10)**2])
 
     def _initialize_weights(self):
