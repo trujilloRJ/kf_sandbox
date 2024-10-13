@@ -177,6 +177,16 @@ class UKF_CTRV:
 
         return x_mean, P_pred
 
+def filter_cyclic(frame, kf_f, meas: np.ndarray):
+    if frame == 0:
+        kf_f.x = np.zeros(kf_f.dim_state)
+        z0 = np.array([meas[0] * np.cos(meas[1]), meas[0] * np.sin(meas[1])])
+        kf_f.x[IX], kf_f.x[IY] = z0[0], z0[1]
+        kf_f.P = np.diag([3**2, 3**2, np.radians(90)**2, 20**2, np.radians(10)**2])
+    else:
+        kf_f.predict()
+        kf_f.update(meas)
+
 def weighted_mean_ctrv(X: np.ndarray, weights):
     x_mean = X @ weights
     x_mean[IPHI] = circular_mean(X[IPHI, :], weights)
