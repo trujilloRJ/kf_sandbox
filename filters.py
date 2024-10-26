@@ -78,16 +78,16 @@ class UKF_CTRV:
     def _initialize_weights(self):
         nx = self.dim_state
         # original Merwe scaled UT
-        # kappa = 3 - nx
-        # alpha = 0.1
-        # beta = 2
+        kappa = 3 - nx
+        alpha = 1
+        beta = 2
         # this selection is not the original Merwe, but it has been chosen like this to
         # avoid large negative weigth which skew mean and covariance for phi in state
         # ultimately leading to filter instability
         # CKF
-        kappa = 0
-        alpha = 1
-        beta = 0
+        # kappa = 0
+        # alpha = 1
+        # beta = 0
         #-----------------------------------------------------------------------------
         self.lambda_ = alpha**2 * (nx+kappa) - nx
         gamma = self.lambda_ + nx

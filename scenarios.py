@@ -36,11 +36,11 @@ def get_scenario(scenario_id: str, cycle_time_s: float):
     elif scenario_id == '5':
         # CTRV - smooth turn and sharp turn 
         scenario = {
-            'duration_s': 20.0, 
-            'x_init': np.array([-40, 10, 0, 5, 0]), # x, y, phi, v, w
+            'duration_s': 40, 
+            'x_init': np.array([-70, 20, 0, 5, 0]), # x, y, phi, v, w
             'state': 'polar', 
-            # 'manx_frames': [[5/T, 10/T, np.radians(-90/7)], [12/T, 15/T, np.radians(-90/3)]], # initial frame, n_frames, manouver value
-            'accw_frames': [[5/T, 5/T+15, np.radians(-1)], [10/T, 10/T+15, np.radians(1)]], # initial frame, n_frames, increment value
+            # 'accw_frames': [[5/T, 5/T+15, np.radians(-1)], [10/T, 10/T+15, np.radians(1)]], # initial frame, n_frames, increment value
+            'accw_frames': [[7/T, 7/T+15, np.radians(-2)], [15.5/T, 15.5/T+15, np.radians(2)]], # initial frame, n_frames, increment value
         }
     else:
         raise ValueError('Scenario not found')
