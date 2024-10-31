@@ -1,8 +1,8 @@
 import numpy as np
 from utils import *
-from motion_models import MotionModel
 
-def simulate_motion_CTRV(cycle_time, n_frames, x_init, motion_model: MotionModel, accw_frames):
+
+def simulate_motion_CTRV(cycle_time, n_frames, x_init, motion_model, accw_frames):
     T = cycle_time
     dim_state = len(x_init)
     sim_state = np.zeros([dim_state, n_frames])
@@ -22,10 +22,6 @@ def simulate_motion_CTRV(cycle_time, n_frames, x_init, motion_model: MotionModel
         for t_seg in accw_frames:
             if i >= int(t_seg[0]) and i <= int(t_seg[1]):
                 x_next[IW] += t_seg[2]
-            # if i == int(t_seg[0]):
-            #     x_next[IW] += t_seg[2]
-            # if i == int(t_seg[1]):
-            #     x_next[IW] -= t_seg[2]
 
         sim_state[:, i] = x_next
 

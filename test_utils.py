@@ -1,6 +1,5 @@
 import pytest
 import numpy as np
-from scipy.stats import circmean
 from utils import circular_mean
 
 # content of test_class.py
